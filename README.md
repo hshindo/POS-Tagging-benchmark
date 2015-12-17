@@ -13,12 +13,13 @@ Penn Treebank
 ### Network Structure
 ```
 function forward(words)
-  foreach word in words
+  for i=1:#words
     char_vectors[i] =
-      chars [1*#chars] ->
+      words[i].chars [1*#chars] ->
       embed(10) [10*#chars] ->
       conv2d(linear=(50, 50), filter_size=(10,5), stride=(1,1), pad_size=(10,2)) [50*#chars] ->
-      max-pooling2d(filter_size=(10,5), stride=(1,1)) [50*1]
+      maxpooling2d(filter_size=(10,5), stride=(1,1)) [50*1]
+  end
   char_matrix = char_vectors -> concat(2) [50*#words]
   
   word_matrix = words [100*#words] -> embed(100) [100*#words]
@@ -35,4 +36,5 @@ end
 
 ### Training
 - SGD (learning rate: 0.0075)
+- Loss function: cross-entropy
 - #epochs: 10
