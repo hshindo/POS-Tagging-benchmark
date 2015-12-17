@@ -22,7 +22,7 @@ function forward(words)
   end
   char_matrix = char_vectors -> concat(2) [50*#words]
   
-  word_matrix = words [100*#words] -> embed(100) [100*#words]
+  word_matrix = words [1*#words] -> embed(100) [100*#words]
   
   sent_matrix = [char_matrix, word_matrix] -> concat(1) [150*#words]
   
