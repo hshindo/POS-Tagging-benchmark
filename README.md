@@ -1,4 +1,4 @@
-## POSTagging-benchmark
+## POS-Tagging-benchmark
 - Theano
 - Chainer
 - Merlin
