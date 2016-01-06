@@ -4,6 +4,7 @@ from . import util
 import sys
 import os
 import logging
+import time
 
 import chainer.optimizers as O
 import chainer.links as L
@@ -95,11 +96,14 @@ def train(args):
         for i, ((word_ids_data, (char_ids_data, char_boundaries)), t_data) in enumerate(batches):
             batch_size, batch_length = word_ids_data.shape
 
+            time_start = time.time()
             word_ids = Variable(word_ids_data)
             char_ids = Variable(char_ids_data)
             t = Variable(t_data)
             batch = word_ids, (char_ids, char_boundaries)
             optimizer.update(classifier, batch, t)
+            time_end = time.time()
+            time_delta = time_end - time_start
 
             logger.info(_log_str([
                 ('epoch', n),
@@ -108,6 +112,7 @@ def train(args):
                 ('acc', float(classifier.accuracy.data)),
                 ('size', batch_size),
                 ('len', batch_length),
+                ('time', int(time_delta * 1000)),
             ]))
 
         # save current model
