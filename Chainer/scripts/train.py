@@ -12,7 +12,7 @@ if __name__ == '__main__':
     parser.add_argument('model', help='destination of model')
 
     # NN architecture
-    parser.add_argument('--vocab', type=int, default=10000, help='vocabulary size')
+    parser.add_argument('--vocab', type=int, default=None, help='vocabulary size')
     parser.add_argument('--word-emb', type=int, default=100, help='dimension of word embeddings')
     parser.add_argument('--word-window', type=int, default=5, help='window size for word-level convolution')
     parser.add_argument('--word-hidden', type=int, default=300, help='layer size after word-level convolution')

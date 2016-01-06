@@ -51,9 +51,9 @@ class NnTagger(Chain):
 
         # initialize embeddings
         if word_init_emb is not None:
-            self.word_emb.W = word_init_emb
+            self.word_emb.W.data = word_init_emb
         if use_char and char_init_emb is not None:
-            self.char_emb.W = char_init_emb
+            self.char_emb.W.data = char_init_emb
 
     def __call__(self, batch):
         word_ids, (char_ids, char_boundaries) = batch
@@ -85,8 +85,7 @@ class NnTagger(Chain):
         word_embs_reshape = F.reshape(word_embs, (batch_size, 1, -1, self.word_dim))
 
         h = self.word_conv(word_embs_reshape)   # batch x dim x len x 1
-        #h_transpose = F.swapaxes(h, 1, 2)  # TODO: maybe inefficient
-        h_transpose = F.transpose(h, (0, 2, 1, 3))  # TODO: maybe inefficient
+        h_transpose = F.swapaxes(h, 1, 2)  # TODO: maybe inefficient, renders array non-C-contiguous
         h_reshape = F.reshape(h_transpose, (-1, self.word_hidden_dim))
 
         y = self.linear(F.relu(h_reshape))

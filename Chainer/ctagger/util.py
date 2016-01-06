@@ -91,7 +91,7 @@ def load_conll(path, vocab_size=None, file_encoding='utf-8'):
             corpus.append(wts)
 
     for w, f in sorted(word_freqs.items(), key=lambda (k, v): -v):
-        if vocab_size is not None and vocab_word.size() < vocab_size:
+        if vocab_size is None or vocab_word.size() < vocab_size:
             vocab_word.add_word(w)
         else:
             break

@@ -3,6 +3,7 @@ from . import util
 
 import sys
 import os
+import logging
 
 import chainer.optimizers as O
 import chainer.links as L
@@ -10,9 +11,32 @@ from chainer import Variable
 from chainer import cuda
 
 
+def _log_str(lst):
+    s = []
+    for k, v in lst:
+        s.append(k + ':')
+        if isinstance(v, float):
+            v_str = '{:.6f}'.format(v)
+        else:
+            v_str = str(v)
+        s.append(v_str)
+    return '\t'.join(s)
+
+
 def train(args):
     if args.gpu is not None:
         cuda.get_device(args.gpu).use()
+
+    os.makedirs(args.model)
+
+    # set up logger
+    logger = logging.getLogger()
+    logging.basicConfig(level=logging.INFO)
+    log_path = os.path.join(args.model, 'log')
+    file_handler = logging.FileHandler(log_path)
+    fmt = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+    file_handler.setFormatter(fmt)
+    logger.addHandler(file_handler)
 
     # set up optimizer
     optim_name = args.optim[0]
@@ -21,13 +45,13 @@ def train(args):
     optimizer = getattr(O, optim_name)(*optim_args)
 
     # load data
-    print >> sys.stderr, 'Loading data...'
+    logger.info('Loading data...')
     corpus, vocab_word, vocab_char, vocab_tag = util.load_conll(args.data, args.vocab)
 
     # load pre-trained embeddings
     init_emb = None
     if args.init_emb:
-        print >> sys.stderr, 'Loading word embeddings...'
+        logger.info('Loading word embeddings...')
         assert args.init_emb_words
         init_emb = util.load_init_emb(args.init_emb, args.init_emb_words, vocab_word)
         emb_dim = init_emb.shape[1]
@@ -35,7 +59,7 @@ def train(args):
         emb_dim = args.word_emb
 
     # create batches
-    print >> sys.stderr, 'Creating batches...'
+    logger.info('Creating batches...')
     batches = util.create_batches(corpus, vocab_word, vocab_char, vocab_tag, args.batch,
                                   args.word_window, args.char_window, gpu=args.gpu, shuffle=not args.no_shuffle)
 
@@ -57,7 +81,6 @@ def train(args):
     optimizer.setup(classifier)
 
     # create directory
-    os.makedirs(args.model)
     vocab_word.save(os.path.join(args.model, 'vocab_word'))
     vocab_char.save(os.path.join(args.model, 'vocab_char'))
     vocab_tag.save(os.path.join(args.model, 'vocab_tag'))
@@ -67,10 +90,10 @@ def train(args):
         # decay learning rate
         if args.decay_lr:
             optimizer.lr = initial_lr / (n + 1)
-            print >> sys.stderr, 'Learning rate set to: {}'.format(optimizer.lr)
+            logger.info('Learning rate set to: {}'.format(optimizer.lr))
 
         for i, ((word_ids_data, (char_ids_data, char_boundaries)), t_data) in enumerate(batches):
-            batch_size = word_ids_data.shape[0]
+            batch_size, batch_length = word_ids_data.shape
 
             word_ids = Variable(word_ids_data)
             char_ids = Variable(char_ids_data)
@@ -78,8 +101,14 @@ def train(args):
             batch = word_ids, (char_ids, char_boundaries)
             optimizer.update(classifier, batch, t)
 
-            print >> sys.stderr, 'Epoch:{}\tBatch:{}\tloss:{}\tacc:{}\tsize:{}'.format(
-                n, i, classifier.loss.data, classifier.accuracy.data, batch_size)
+            logger.info(_log_str([
+                ('epoch', n),
+                ('batch', i),
+                ('loss', float(classifier.loss.data)),
+                ('acc', float(classifier.accuracy.data)),
+                ('size', batch_size),
+                ('len', batch_length),
+            ]))
 
         # save current model
         dest_path = os.path.join(args.model, 'epoch' + str(n))
