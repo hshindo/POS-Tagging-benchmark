@@ -88,7 +88,7 @@ class NnTagger(Chain):
         h_transpose = F.swapaxes(h, 1, 2)  # TODO: maybe inefficient, renders array non-C-contiguous
         h_reshape = F.reshape(h_transpose, (-1, self.word_hidden_dim))
 
-        y = self.linear(F.relu(h_reshape))
+        y = self.linear(F.relu(h_reshape, use_cudnn=False))
 
         return y
 
