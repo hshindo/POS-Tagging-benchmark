@@ -48,4 +48,7 @@ end
 ### Setting 1
 * train: first 5000 sentences in training data
 * test: all sentences in test data
-* [result5000]()
+* [result5000-update_embed]()
+* [result5000-noupdate_embed]()
+
+### Setting 2
