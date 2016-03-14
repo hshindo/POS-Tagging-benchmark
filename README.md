@@ -4,13 +4,13 @@
 - Merlin
 
 ## Data
-Penn Treebank
-- Training: section 00-18
-- Testing: section 23
+* Penn Treebank
+ - Training: section 00-18 ("wsj_00-18.conll")
+ - Testing: section 22-24 ("wsj_22-24.conll")
+* Word list ("words.lst")
+* Word embeddings ("nyt100.lst")
 
-## Settings
-
-### Network Structure
+## Network Structure
 ```
 function forward(words)
   for i=1:#words
@@ -18,7 +18,7 @@ function forward(words)
       words[i].chars [1*#chars] ->
       embed(10) [10*#chars] ->
       conv2d(linear=(50, 50), filter_size=(10,5), stride=(1,1), pad_size=(10,2)) [50*#chars] ->
-      maxpooling2d(filter_size=(10,5), stride=(1,1)) [50*1]
+      max(dim=2) [50*1]
   end
   char_matrix = char_vectors -> concat(2) [50*#words]
   
@@ -34,7 +34,18 @@ function forward(words)
 end
 ```
 
-### Training
-- SGD (learning rate: 0.0075)
+## Settings
+* word preprocessing: [token.jl](https://github.com/hshindo/Merlin.jl/blob/master/examples/postagging/token.jl)
+* lookup initialization: [lookup.jl](https://github.com/hshindo/Merlin.jl/blob/master/src/functors/lookup.jl)
+* linear initialization: [linear.jl](https://github.com/hshindo/Merlin.jl/blob/master/src/functors/linear.jl)
+
+## Training
+- SGD (learning rate: 0.0075 / # iter)
 - Loss function: cross-entropy
 - #epochs: 10
+
+## Results
+### Setting 1
+* train: first 5000 sentences in training data
+* test: all sentences in test data
+* [result5000]()
