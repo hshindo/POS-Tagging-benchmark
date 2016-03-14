@@ -4,6 +4,8 @@
 - Merlin
 
 ## Data
+path: /cl/work/shindo/postagging-benchmark
+
 * Penn Treebank
  - Training: section 00-18 ("wsj_00-18.conll")
  - Testing: section 22-24 ("wsj_22-24.conll")
