@@ -35,9 +35,12 @@ end
 ```
 
 ## Settings
-* word preprocessing: [token.jl](https://github.com/hshindo/Merlin.jl/blob/master/examples/postagging/token.jl)
-* lookup initialization: [lookup.jl](https://github.com/hshindo/Merlin.jl/blob/master/src/functors/lookup.jl)
-* linear initialization: [linear.jl](https://github.com/hshindo/Merlin.jl/blob/master/src/functors/linear.jl)
+* Word preprocessing
+ * For lookup word id, replace digit with '0' (ex. 1999 -> 0000), lowercase (ex. Apple -> apple)
+ * For lookup char id, no preprocessing (use raw word)
+ * See [token.jl](https://github.com/hshindo/Merlin.jl/blob/master/examples/postagging/token.jl) for detail.
+* Lookup initialization: [lookup.jl](https://github.com/hshindo/Merlin.jl/blob/master/src/functors/lookup.jl)
+* Linear initialization: [linear.jl](https://github.com/hshindo/Merlin.jl/blob/master/src/functors/linear.jl)
 
 ## Training
 - SGD (learning rate: 0.0075 / # iter)
@@ -52,3 +55,7 @@ end
 * [result5000-noupdate_embed]()
 
 ### Setting 2
+* train: all sentences in training data
+* test: all sentences in test data
+* [result-update_embed]()
+* [result-noupdate_embed]()
