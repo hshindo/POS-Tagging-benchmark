@@ -38,7 +38,7 @@ end
 * Word preprocessing
  * For lookup word id, replace digit with '0' (ex. 1999 -> 0000), lowercase (ex. Apple -> apple)
  * For lookup char id, no preprocessing (use raw word)
- * See [token.jl](https://github.com/hshindo/Merlin.jl/blob/master/examples/postagging/token.jl) for detail.
+ * See [token.jl](https://github.com/hshindo/POS-Tagging-benchmark/blob/master/Merlin/token.jl) for detail.
 * Lookup initialization: [lookup.jl](https://github.com/hshindo/Merlin.jl/blob/master/src/functors/lookup.jl)
 * Linear initialization: [linear.jl](https://github.com/hshindo/Merlin.jl/blob/master/src/functors/linear.jl)
 
@@ -51,11 +51,11 @@ end
 ### Setting 1
 * train: first 5000 sentences in training data
 * test: all sentences in test data
-* [result5000-update_embed]()
-* [result5000-noupdate_embed]()
+* [result5000-embed_update](https://github.com/hshindo/POS-Tagging-benchmark/blob/master/Merlin/result5000-embed_update.txt)
+* [result5000-embed_noupdate](https://github.com/hshindo/POS-Tagging-benchmark/blob/master/Merlin/result5000-embed_noupdate.txt)
 
 ### Setting 2
 * train: all sentences in training data
 * test: all sentences in test data
-* [result-update_embed]()
-* [result-noupdate_embed]()
+* [result-embed_update](https://github.com/hshindo/POS-Tagging-benchmark/blob/master/Merlin/result-embed_update.txt)
+* [result-embed_noupdate](https://github.com/hshindo/POS-Tagging-benchmark/blob/master/Merlin/result-embed_noupdate.txt)
