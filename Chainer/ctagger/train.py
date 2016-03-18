@@ -50,15 +50,30 @@ def train(args):
     optimizer = getattr(O, optim_name)(*optim_args)
 
     # load data
-    logger.info('Loading data...')
-    corpus, vocab_word, vocab_char, vocab_tag = util.load_conll(args.data, args.vocab)
+    logger.info('Loading word list...')
+    ws = set()
+    with open(args.words) as f:
+        for line in f:
+            w = line.rstrip().decode('utf-8')
+            ws.add(w)
+    logger.info('Loading training data...')
+    corpus, vocab_word, vocab_char, vocab_tag = util.load_conll(args.data, args.vocab_size, limit_vocab=ws)
+    if args.test:
+        logger.info('Loading test data...')
+        corpus_test, vocab_word_test, vocab_char_test, vocab_tag_test = util.load_conll(args.test, None, limit_vocab=ws)
+        for w in vocab_word_test.i2w:
+            if args.vocab_size is None or vocab_word.size() < args.vocab_size:
+                vocab_word.add_word(w)
+        for c in vocab_char_test.i2w:
+            vocab_char.add_word(c)
+        for t in vocab_tag_test.i2w:
+            vocab_tag.add_word(t)
 
     # load pre-trained embeddings
     init_emb = None
     if args.init_emb:
         logger.info('Loading word embeddings...')
-        assert args.init_emb_words
-        init_emb = util.load_init_emb(args.init_emb, args.init_emb_words, vocab_word)
+        init_emb = util.load_init_emb(args.init_emb, args.words, vocab_word)
         emb_dim = init_emb.shape[1]
     else:
         emb_dim = args.word_emb

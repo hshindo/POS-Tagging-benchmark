@@ -51,7 +51,7 @@ class Vocab(object):
         return vocab
 
 
-def load_conll(path, vocab_size=None, file_encoding='utf-8'):
+def load_conll(path, vocab_size=None, file_encoding='utf-8', limit_vocab=None):
     """Load CoNLL-format file.
     :return tuple of corpus (pairs of words and tags), word vocabulary, char vocabulary, tag vocabulary"""
 
@@ -65,7 +65,7 @@ def load_conll(path, vocab_size=None, file_encoding='utf-8'):
     vocab_word.add_word(EOS)
     vocab_word.add_word(UNK)
     vocab_char.add_word(EOS)
-    vocab_char.add_word(UNK)
+    #vocab_char.add_word(UNK)
 
     with open(path) as f:
         wts = []
@@ -90,10 +90,12 @@ def load_conll(path, vocab_size=None, file_encoding='utf-8'):
             corpus.append(wts)
 
     for w, f in sorted(word_freqs.items(), key=lambda (k, v): -v):
-        if vocab_size is None or vocab_word.size() < vocab_size:
-            vocab_word.add_word(w)
-        else:
-            break
+        if limit_vocab is None or w in limit_vocab:
+            # register only words in limit_vocab
+            if vocab_size is None or vocab_word.size() < vocab_size:
+                vocab_word.add_word(w)
+            else:
+                break
 
     for c, f in sorted(char_freqs.items(), key=lambda (k, v): -v):
         vocab_char.add_word(c)
