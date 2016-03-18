@@ -78,10 +78,9 @@ def load_conll(path, vocab_size=None, file_encoding='utf-8'):
                 tag = es[4].decode(file_encoding)
                 for c in word:
                     char_freqs[c] += 1
-                word = word.lower()     # lowercase words
                 wt = (word, tag)
                 wts.append(wt)
-                word_freqs[word] += 1
+                word_freqs[word.lower()] += 1
                 vocab_tag.add_word(tag)
             else:
                 # reached end of sentence
@@ -130,11 +129,11 @@ def load_init_emb(init_emb, init_emb_words, vocab):
                 word = EOS
             elif word == u'UNKNOWN':
                 word = UNK
-            elif word == u'-lrb-':
-                word = u'('
-            elif word == u'-rrb-':
-                word = u')'
-            else:
+            #elif word == u'-lrb-':
+            #    word = u'('
+            #elif word == u'-rrb-':
+            #    word = u')'
+            #else:
                 # TODO: convert numbers appropriately
                 pass
 
@@ -187,7 +186,7 @@ def create_batches(corpus, vocab_word, vocab_char, vocab_tag, batch_size, word_w
         t_ids = []
         c_ids = []
         for w, t in sen:
-            w_id = vocab_word.get_id(w)
+            w_id = vocab_word.get_id(w.lower())
             t_id = vocab_tag.get_id(t)
             if w_id is None:
                 w_id = vocab_word.get_id(UNK)
