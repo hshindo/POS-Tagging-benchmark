@@ -177,10 +177,7 @@ def split_into_batches(corpus, batch_size, length_func=lambda t: len(t[0])):
     return batches
 
 
-def create_batches(corpus, vocab_word, vocab_char, vocab_tag, batch_size, word_window, char_window, gpu, shuffle):
-    char_padding_size = char_window / 2
-    char_padding = [vocab_char.get_id(EOS)] * char_padding_size
-
+def create_batches(corpus, vocab_word, vocab_char, vocab_tag, batch_size, gpu, shuffle):
     # convert to IDs
     id_corpus = []
     for sen in corpus:
@@ -201,7 +198,7 @@ def create_batches(corpus, vocab_word, vocab_char, vocab_tag, batch_size, word_w
             c_ids.append([vocab_char.get_id(c) for c in w])
         id_corpus.append((w_ids, t_ids, c_ids))
 
-    # sort by lengths
+    # sort by sentence lengths
     id_corpus.sort(key=lambda w_t: len(w_t[0]))
 
     # split into batches
@@ -216,19 +213,15 @@ def create_batches(corpus, vocab_word, vocab_char, vocab_tag, batch_size, word_w
     for word_batch in word_batches:
         word_ids, tag_ids, char_ids = zip(*word_batch)
 
-        char_boundaries = []
         char_batch = []
+        char_boundaries = []
         i = 0
-        char_batch.extend(char_padding)
-
-        for word_id_list, char_id_lists in zip(word_ids, char_ids):
-            for w_id, c_ids in zip(word_id_list, char_id_lists):
-                char_batch.extend(c_ids)
-                char_batch.extend(char_padding)
-                i += char_padding_size
-                char_boundaries.append(i)
+        for char_id_lists in char_ids:
+            for c_ids in char_id_lists:
                 i += len(c_ids)
                 char_boundaries.append(i)
+                char_batch.extend(c_ids)
+        char_boundaries.pop()
 
         word_ids_data = np.asarray(word_ids, dtype=np.int32)
         char_ids_data = np.asarray(char_batch, dtype=np.int32)

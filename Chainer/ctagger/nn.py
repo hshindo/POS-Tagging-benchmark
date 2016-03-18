@@ -65,18 +65,20 @@ class NnTagger(Chain):
         if self.use_char:
             # character lookup table
             char_embs = self.char_emb(char_ids)     # total_len x dim
-            char_embs_reshape = F.reshape(char_embs, (1, 1, -1, self.char_emb_dim))     # 1 x 1 x total_len x dim
 
-            # convolution
-            char_emb_conv = self.char_conv(char_embs_reshape)     # 1 x dim x total_len x 1
-            char_emb_conv_reshape = F.reshape(char_emb_conv, (self.char_hidden_dim, -1))     # dim x total_len
-
-            # max
             embs = []
-            for i, char_emb_conv_word in enumerate(F.split_axis(char_emb_conv_reshape, char_boundaries, axis=1)):
-                if i % 2 == 1:
-                    # not pad
-                    embs.append(F.max(char_emb_conv_word, axis=1))
+            for i, char_emb_word in enumerate(F.split_axis(char_embs, char_boundaries, axis=0)):
+                char_emb_reshape = F.reshape(char_emb_word, (1, 1, -1, self.char_emb_dim))     # 1 x 1 x len x dim
+
+                # convolution
+                char_emb_conv = self.char_conv(char_emb_reshape)     # 1 x dim x len x 1
+                char_emb_conv_reshape = F.reshape(char_emb_conv, (self.char_hidden_dim, -1))     # dim x len
+
+                # max
+                char_emb_max = F.max(char_emb_conv_reshape, axis=1)
+
+                embs.append(char_emb_max)
+
             char_emb_conv = F.reshape(F.concat(embs, axis=0), (batch_size, -1, self.char_hidden_dim))
 
             # concatenate

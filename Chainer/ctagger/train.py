@@ -81,7 +81,7 @@ def train(args):
     # create batches
     logger.info('Creating batches...')
     batches = util.create_batches(corpus, vocab_word, vocab_char, vocab_tag, args.batch,
-                                  args.word_window, args.char_window, gpu=args.gpu, shuffle=not args.no_shuffle)
+                                  gpu=args.gpu, shuffle=not args.no_shuffle)
 
     # set up tagger
     tagger = nn.NnTagger(
