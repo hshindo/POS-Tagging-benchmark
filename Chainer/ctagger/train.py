@@ -1,12 +1,12 @@
 from . import nn
 from . import util
 
-import sys
 import os
 import logging
 import time
 
 import chainer.optimizers as O
+import chainer.functions as F
 import chainer.links as L
 from chainer import Variable
 from chainer import cuda
@@ -22,6 +22,10 @@ def _log_str(lst):
             v_str = str(v)
         s.append(v_str)
     return '\t'.join(s)
+
+
+def _softmax_cross_entropy_no_normalize(y, t):
+    return F.softmax_cross_entropy(y, t) * y.data.shape[0]
 
 
 def train(args):
@@ -69,7 +73,7 @@ def train(args):
             word_vocab_size=vocab_word.size(), word_emb_dim=emb_dim, word_window_size=args.word_window, word_init_emb=init_emb, word_hidden_dim=args.word_hidden,
             use_char=args.use_char, char_vocab_size=vocab_char.size(), char_emb_dim=args.char_emb, char_window_size=args.char_window, char_hidden_dim=args.char_hidden,
             tag_num=vocab_tag.size())
-    classifier = L.Classifier(tagger)
+    classifier = L.Classifier(tagger, lossfun=_softmax_cross_entropy_no_normalize)
 
     initial_lr = None
     if args.decay_lr:
