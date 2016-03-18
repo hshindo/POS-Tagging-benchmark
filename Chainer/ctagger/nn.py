@@ -67,7 +67,12 @@ class NnTagger(Chain):
             char_embs = self.char_emb(char_ids)     # total_len x dim
 
             embs = []
-            for i, char_emb_word in enumerate(F.split_axis(char_embs, char_boundaries, axis=0)):
+            if len(char_boundaries) > 0:
+                lst = F.split_axis(char_embs, char_boundaries, axis=0)
+            else:
+                # sentence has only one word
+                lst = [char_embs]
+            for i, char_emb_word in enumerate(lst):
                 char_emb_reshape = F.reshape(char_emb_word, (1, 1, -1, self.char_emb_dim))     # 1 x 1 x len x dim
 
                 # convolution

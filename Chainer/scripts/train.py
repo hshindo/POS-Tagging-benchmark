@@ -9,8 +9,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train NN tagger.')
 
     parser.add_argument('data', help='path to training data')
-    parser.add_argument('model', help='destination of model')
     parser.add_argument('words', help='word list')
+    parser.add_argument('model', help='destination of model')
     parser.add_argument('--test', help='path to test data (test words appearing in word list are included in vocabulary)')
 
     # NN architecture
