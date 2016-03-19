@@ -4,6 +4,7 @@ from . import util
 import os
 import logging
 import time
+import random
 
 import chainer.optimizers as O
 import chainer.functions as F
@@ -105,12 +106,19 @@ def train(args):
     vocab_char.save(os.path.join(args.model, 'vocab_char'))
     vocab_tag.save(os.path.join(args.model, 'vocab_tag'))
 
+    total_time = 0.
+
     # training loop
     for n in range(args.epoch):
+        epoch_begin = time.time()
+
         # decay learning rate
         if args.decay_lr:
             optimizer.lr = initial_lr / (n + 1)
             logger.info('Learning rate set to: {}'.format(optimizer.lr))
+
+        if not args.no_shuffle:
+            random.shuffle(batches)
 
         for i, ((word_ids_data, (char_ids_data, char_boundaries)), t_data) in enumerate(batches):
             batch_size, batch_length = word_ids_data.shape
@@ -134,6 +142,12 @@ def train(args):
                 ('time', int(time_delta * 1000)),
             ]))
 
+        epoch_end = time.time()
+        total_time += epoch_end - epoch_begin
+
         # save current model
         dest_path = os.path.join(args.model, 'epoch' + str(n))
         tagger.save(dest_path)
+
+    logger.info('Training done.')
+    logger.info('Total time: {} sec'.format(total_time))

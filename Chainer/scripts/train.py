@@ -24,7 +24,7 @@ if __name__ == '__main__':
     parser.add_argument('--char-hidden', type=int, default=50, help='layer size after character-level convolution')
 
     # training options
-    parser.add_argument('--batch', type=int, default=128, help='batch size')
+    parser.add_argument('--batch', type=int, default=1, help='batch size')
     parser.add_argument('--epoch', type=int, default=10, help='number of epochs to train')
     parser.add_argument('--init-emb', default=None, help='initial word embedding file (word2vec output, each line corresponds to line in word list)')
     parser.add_argument('--optim', nargs='+', default=['SGD', '0.0075'], help='optimization method supported by chainer (optional arguments can be omitted)')

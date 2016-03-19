@@ -2,10 +2,10 @@ from . import nn
 from . import util
 
 import sys
+import time
 import os
 
 import numpy as np
-import chainer.links as L
 from chainer import Variable
 
 
@@ -26,13 +26,14 @@ def test(args):
     corpus = util.load_conll(args.data, 0)[0]
 
     print >> sys.stderr, 'Creating batches...'
-    batches = util.create_batches(corpus, vocab_word, vocab_char, vocab_tag, 1024, gpu=None, shuffle=True)
+    batches = util.create_batches(corpus, vocab_word, vocab_char, vocab_tag, args.batch, gpu=None, shuffle=True)
     batch_num = len(batches)
 
     # main loop
     total = 0
     correct = 0
     processed_num = 0
+    time_begin = time.time()
     for i, ((word_ids_data, (char_ids_data, char_boundaries)), t_data) in enumerate(batches):
         processed_num += 1
 
@@ -49,10 +50,12 @@ def test(args):
         print >> sys.stderr, 'Processed {:.2%} [{}/{}]'.format(
             float(processed_num) / batch_num,
             processed_num, batch_num)
+    time_end = time.time()
 
     # report result
     print '{:.2%}'.format(float(correct) / total)
     print correct
     print total
+    print 'Time elapsed: {} sec'.format(time_end - time_begin)
 
 

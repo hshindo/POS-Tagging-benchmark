@@ -136,8 +136,8 @@ def load_init_emb(init_emb, init_emb_words, vocab):
             #elif word == u'-rrb-':
             #    word = u')'
             #else:
-                # TODO: convert numbers appropriately
-                pass
+            #    # TODO: convert numbers appropriately
+            #    pass
 
             w_id = vocab.get_id(word)
 
@@ -198,15 +198,14 @@ def create_batches(corpus, vocab_word, vocab_char, vocab_tag, batch_size, gpu, s
             c_ids.append([vocab_char.get_id(c) for c in w])
         id_corpus.append((w_ids, t_ids, c_ids))
 
+    if shuffle:
+        random.shuffle(id_corpus)
+
     # sort by sentence lengths
     id_corpus.sort(key=lambda w_t: len(w_t[0]))
 
     # split into batches
     word_batches = split_into_batches(id_corpus, batch_size)
-
-    # shuffle batches
-    if shuffle:
-        random.shuffle(word_batches)
 
     # character IDs
     batches = []

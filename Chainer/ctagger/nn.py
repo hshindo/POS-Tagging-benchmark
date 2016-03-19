@@ -6,7 +6,7 @@ import chainer.links as L
 
 
 class NnTagger(Chain):
-    """Neural network tagger by dos (Santos and Zadrozny, ICML 2014)."""
+    """Neural network tagger by (dos Santos and Zadrozny, ICML 2014)."""
 
     def __init__(self, word_vocab_size=10000, word_emb_dim=100, word_window_size=5, word_init_emb=None, word_hidden_dim=100,
                  use_char=True, char_vocab_size=50, char_emb_dim=10, char_window_size=5, char_init_emb=None, char_hidden_dim=50,
@@ -22,13 +22,6 @@ class NnTagger(Chain):
             word_dim = word_emb_dim
 
         super(NnTagger, self).__init__(
-                # TODO: make these optional
-                char_emb=L.EmbedID(char_vocab_size, char_emb_dim),
-                char_conv=L.Convolution2D(1, char_hidden_dim,
-                                          ksize=(char_window_size, char_emb_dim),
-                                          stride=(1, char_emb_dim),
-                                          pad=(char_window_size/2, 0)),
-
                 word_emb=L.EmbedID(word_vocab_size, word_emb_dim),
                 word_conv=L.Convolution2D(1, word_hidden_dim,
                                           ksize=(word_window_size, word_dim),
@@ -36,6 +29,13 @@ class NnTagger(Chain):
                                           pad=(word_window_size/2, 0)),
                 linear=L.Linear(word_hidden_dim, tag_num),
         )
+
+        if use_char:
+            self.add_link('char_emb', L.EmbedID(char_vocab_size, char_emb_dim))
+            self.add_link('char_conv', L.Convolution2D(1, char_hidden_dim,
+                                                       ksize=(char_window_size, char_emb_dim),
+                                                       stride=(1, char_emb_dim),
+                                                       pad=(char_window_size/2, 0)))
 
         self.word_vocab_size = word_vocab_size
         self.word_emb_dim = word_emb_dim
