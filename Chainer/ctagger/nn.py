@@ -9,12 +9,14 @@ class NnTagger(Chain):
     """Neural network tagger by (dos Santos and Zadrozny, ICML 2014)."""
 
     def __init__(self, word_vocab_size=10000, word_emb_dim=100, word_window_size=5, word_init_emb=None, word_hidden_dim=100,
-                 use_char=True, char_vocab_size=50, char_emb_dim=10, char_window_size=5, char_init_emb=None, char_hidden_dim=50,
+                 use_char=True, linear_conv=False, char_vocab_size=50, char_emb_dim=10, char_window_size=5, char_init_emb=None, char_hidden_dim=50,
                  tag_num=45):
 
         assert word_window_size % 2 == 1, 'Word indow size must be odd.'
         if use_char:
             assert char_window_size % 2 == 1, 'Character window size must be odd.'
+
+        assert not (linear_conv and use_char)
 
         if use_char:
             word_dim = word_emb_dim + char_hidden_dim
@@ -37,11 +39,16 @@ class NnTagger(Chain):
                                                        stride=(1, char_emb_dim),
                                                        pad=(char_window_size/2, 0)))
 
+        if linear_conv:
+            lc = L.Linear(word_dim * 5, word_hidden_dim)
+            self.add_link('lc', lc)
+
         self.word_vocab_size = word_vocab_size
         self.word_emb_dim = word_emb_dim
         self.word_window_size = word_window_size
         self.word_hidden_dim = word_hidden_dim
         self.use_char = use_char
+        self.linear_conv = linear_conv
         self.char_vocab_size = char_vocab_size
         self.char_emb_dim = char_emb_dim
         self.char_window_size = char_window_size
@@ -57,7 +64,7 @@ class NnTagger(Chain):
 
     def __call__(self, batch):
         word_ids, (char_ids, char_boundaries) = batch
-        batch_size = word_ids.data.shape[0]
+        batch_size, word_len = word_ids.data.shape[:2]
 
         # word lookup table
         word_embs = self.word_emb(word_ids)     # batch x len x dim
@@ -89,11 +96,15 @@ class NnTagger(Chain):
             # concatenate
             word_embs = F.concat([word_embs, char_emb_conv], axis=2)     # batch x len x dim
 
-        word_embs_reshape = F.reshape(word_embs, (batch_size, 1, -1, self.word_dim))
-
-        h = self.word_conv(word_embs_reshape)   # batch x dim x len x 1
-        h_transpose = F.swapaxes(h, 1, 2)  # TODO: maybe inefficient, renders array non-C-contiguous
-        h_reshape = F.reshape(h_transpose, (-1, self.word_hidden_dim))
+        if self.linear_conv:
+            # NOTE: word_embs has shape (batch, len, word_window, dim)
+            word_embs_reshape = F.reshape(word_embs, (batch_size * word_len, -1))     # (batch x len, word_window x dim)
+            h_reshape = self.lc(word_embs_reshape)  # (batch x len, dim)
+        else:
+            word_embs_reshape = F.reshape(word_embs, (batch_size, 1, -1, self.word_dim))
+            h = self.word_conv(word_embs_reshape)   # batch x dim x len x 1
+            h_transpose = F.swapaxes(h, 1, 2)  # TODO: maybe inefficient, renders array non-C-contiguous
+            h_reshape = F.reshape(h_transpose, (-1, self.word_hidden_dim))
 
         y = self.linear(F.relu(h_reshape, use_cudnn=False))
 

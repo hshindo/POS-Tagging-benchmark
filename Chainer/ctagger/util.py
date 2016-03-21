@@ -177,7 +177,31 @@ def split_into_batches(corpus, batch_size, length_func=lambda t: len(t[0])):
     return batches
 
 
-def create_batches(corpus, vocab_word, vocab_char, vocab_tag, batch_size, gpu, shuffle):
+def _expand(w_ids, window_size, eos_id):
+    res = np.ones((len(w_ids), window_size), dtype=np.int32) * eos_id
+    for i, w_id in enumerate(w_ids):
+        for j in range(window_size):
+            i2 = window_size // 2 + i - j
+            if 0 <= i2 < len(w_ids):
+                res[i2][j] = w_id
+    return res
+
+
+def _test_expand():
+    w_ids = [3, 5, 2, 1, 8, 7]
+    res = _expand(w_ids, 5, 0)
+    ref = [
+        [0, 0, 3, 5, 2],
+        [0, 3, 5, 2, 1],
+        [3, 5, 2, 1, 8],
+        [5, 2, 1, 8, 7],
+        [2, 1, 8, 7, 0],
+        [1, 8, 7, 0, 0],
+    ]
+    assert np.array_equal(np.asarray(res), np.asarray(ref))
+
+
+def create_batches(corpus, vocab_word, vocab_char, vocab_tag, batch_size, linear_conv, window_size, gpu, shuffle):
     # convert to IDs
     id_corpus = []
     for sen in corpus:
@@ -212,6 +236,10 @@ def create_batches(corpus, vocab_word, vocab_char, vocab_tag, batch_size, gpu, s
     for word_batch in word_batches:
         word_ids, tag_ids, char_ids = zip(*word_batch)
 
+        if linear_conv:
+            eos_id = vocab_word.get_id(EOS)
+            word_ids = map(lambda ids: _expand(ids, window_size, eos_id), word_ids)
+
         char_batch = []
         char_boundaries = []
         i = 0
@@ -235,3 +263,6 @@ def create_batches(corpus, vocab_word, vocab_char, vocab_tag, batch_size, gpu, s
 
     return batches
 
+
+if __name__ == '__main__':
+    _test_expand()

@@ -22,6 +22,7 @@ if __name__ == '__main__':
     parser.add_argument('--char-emb', type=int, default=10, help='dimension of character embeddings')
     parser.add_argument('--char-window', type=int, default=5, help='window size for character-level convolution')
     parser.add_argument('--char-hidden', type=int, default=50, help='layer size after character-level convolution')
+    parser.add_argument('--linear-conv', default=False, action='store_true', help='use linear instead of conv2d (only word-level model is supported)')
 
     # training options
     parser.add_argument('--batch', type=int, default=1, help='batch size')

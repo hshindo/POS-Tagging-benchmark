@@ -12,13 +12,19 @@ pip install chainer
 * with characters
 
 ```
-python scripts/train.py wsj_00-18.conll words.lst model --test data/wsj_22-24.conll --init-emb nyt100.lst --optim SGD 0.0075 --decay-lr --batch 1 --use-char
+python scripts/train.py wsj_00-18.conll words.lst model --test wsj_22-24.conll --init-emb nyt100.lst --optim SGD 0.0075 --decay-lr --batch 1 --use-char
 ```
 
 * without characters
 
 ```
-python scripts/train.py wsj_00-18.conll words.lst model --test data/wsj_22-24.conll --init-emb nyt100.lst --optim SGD 0.0075 --decay-lr --batch 1
+python scripts/train.py wsj_00-18.conll words.lst model --test wsj_22-24.conll --init-emb nyt100.lst --optim SGD 0.0075 --decay-lr --batch 1
+```
+
+* without characters (use linear instead of conv2d)
+
+```
+python scripts/train.py wsj_00-18.conll words.lst model --test wsj_22-24.conll --init-emb nyt100.lst --optim SGD 0.0075 --decay-lr --batch 1 --linear-conv
 ```
 
 * Log file at model/log (execution time at the end of the log file)
