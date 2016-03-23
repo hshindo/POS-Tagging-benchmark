@@ -9,6 +9,10 @@ import theano.tensor as T
 from nn_utils import build_shared_zeros
 
 
+def grad_clipping(g, t=100):
+    return T.switch(g ** 2 >= t, t / g ** 2, g)
+
+
 def sgd(cost, params, emb, x, lr=0.1):
     updates = OrderedDict()
     grads = T.grad(cost, params)
@@ -18,7 +22,7 @@ def sgd(cost, params, emb, x, lr=0.1):
 
     """update parameters"""
     for p, g in zip(params, grads):
-        updates[p] = p - lr * g
+        updates[p] = p - lr * grad_clipping(g)
     return updates
 
 

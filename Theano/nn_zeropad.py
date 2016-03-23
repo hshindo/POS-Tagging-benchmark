@@ -64,8 +64,8 @@ class Model(object):
         """ output """
         self.h = relu(T.dot(self.x_phi.reshape((self.x_phi.shape[0], -1)), self.W_in) + self.b_in)
 #        self.p_y_given_x = T.nnet.softmax(T.dot(self.h, self.W_out) + self.b_y)
-        score = T.dot(self.h, self.W_out) + self.b_y
-        self.log_p = score - logsumexp(score, 1)
+        self.score = T.dot(self.h, self.W_out) + self.b_y
+        self.log_p = self.score - logsumexp(self.score, 1)
 
         """ predict """
 #        self.y_pred = T.argmax(self.p_y_given_x, axis=1)
@@ -353,7 +353,7 @@ def train(args):
 
                 total += len(corrects)
                 correct += np.sum(corrects)
-                losses += np.sum(loss)
+                losses += loss
 
             end = time.time()
             print '\tTime: %f seconds' % (end - start)
@@ -415,7 +415,6 @@ if __name__ == '__main__':
     parser.add_argument('--epoch', type=int, default=10, help='number of epochs to train')
     parser.add_argument('--lr', type=float, default=0.0075, help='learning rate')
     parser.add_argument('--init_emb', default=None, help='initial embedding file (word2vec output)')
-    parser.add_argument('--check', default=False)
 
     argv = parser.parse_args()
     train(argv)

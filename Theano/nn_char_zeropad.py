@@ -2,6 +2,7 @@ __author__ = 'hiroki'
 
 import sys
 import time
+import math
 from collections import defaultdict
 
 from util import load_init_emb, PAD, UNK, RE_NUM, Vocab
@@ -13,6 +14,8 @@ from theano.tensor.nnet.conv import conv2d
 
 from nn_utils import build_shared_zeros, sample_weights, relu
 from optimizers import sgd, ada_grad
+
+theano.config.floatX = 'float32'
 
 
 class Model(object):
@@ -69,7 +72,7 @@ class Model(object):
 
         """ feed-forward computation """
         h = relu(T.dot(x_in.reshape((x_in.shape[1], x_in.shape[2])).T, self.W_h))
-        self.p_y_given_x = T.nnet.softmax(T.dot(h, self.W_out)) + 0.00000001
+        self.p_y_given_x = T.nnet.softmax(T.dot(h, self.W_out))
 
         """ prediction """
         self.y_pred = T.argmax(self.p_y_given_x, axis=1)
@@ -87,7 +90,6 @@ class Model(object):
 
     def create_char_feature(self, x_c):
         def forward(x_c_t, W):
-#            c_conv = conv2d(input=x_c_t.reshape((1, 1, x_c_t.shape[0], x_c_t.shape[1])), filters=W)  # c_conv: 1D: n_c_h, 2D: n_char * slide
             c_conv = conv2d(input=x_c_t, filters=W)  # c_conv: 1D: n_c_h, 2D: n_char * slide
             c_t = T.max(c_conv.reshape((c_conv.shape[1], c_conv.shape[2])), axis=1)  # c_t.shape: (1, 50, b_t-b_tm1, 1)
             return c_t
@@ -99,7 +101,7 @@ class Model(object):
         return c
 
 
-def load_conll_char(path, _train, vocab_word, vocab_char=Vocab(), vocab_tag=Vocab(), vocab_size=None, file_encoding='utf-8'):
+def load_conll(path, _train, vocab_word, data_size=100000, vocab_char=Vocab(), vocab_tag=Vocab(), vocab_size=None, file_encoding='utf-8'):
     corpus = []
     word_freqs = defaultdict(int)
     char_freqs = defaultdict(int)
@@ -137,6 +139,8 @@ def load_conll_char(path, _train, vocab_word, vocab_char=Vocab(), vocab_tag=Voca
                 # reached end of sentence
                 corpus.append(wts)
                 wts = []
+                if len(corpus) == data_size:
+                    break
         if wts:
             corpus.append(wts)
 
@@ -225,8 +229,8 @@ def train(args):
 
     """ load data """
     print '\tLoading Data...'
-    train_corpus, vocab_word, vocab_char, vocab_tag = load_conll_char(path=args.train_data, _train=True, vocab_word=vocab_word, vocab_size=args.vocab)
-    dev_corpus, _, _, _ = load_conll_char(path=args.dev_data, _train=False, vocab_word=vocab_word, vocab_char=vocab_char)
+    train_corpus, vocab_word, vocab_char, vocab_tag = load_conll(path=args.train_data, _train=True, data_size=argv.data_size, vocab_word=vocab_word, vocab_size=args.vocab)
+    dev_corpus, _, _, _ = load_conll(path=args.dev_data, _train=False, vocab_word=vocab_word, vocab_char=vocab_char)
     print '\tTrain Sentences: %d  Test Sentences: %d' % (len(train_corpus), len(dev_corpus))
     print '\tVocab size: %d  Char size: %d' % (vocab_word.size(), vocab_char.size())
 
@@ -240,7 +244,6 @@ def train(args):
     n_c_emb = args.c_emb
     window = args.window
     opt = args.opt
-    lr = args.lr
     reg = args.reg
     n_h = args.hidden
     n_c_h = args.c_hidden
@@ -250,6 +253,7 @@ def train(args):
     x = T.ivector()
     c = T.imatrix()
     y = T.ivector()
+    lr = T.fscalar('lr')
 
     """ tagger set up """
     tagger = Model(x=x, c=c, y=y, opt=opt, lr=lr, init_emb=init_emb,
@@ -257,7 +261,7 @@ def train(args):
                    n_emb=n_emb, n_c_emb=n_c_emb, n_h=n_h, n_c_h=n_c_h, n_y=n_y, reg=reg)
 
     train_model = theano.function(
-        inputs=[x, c, y],
+        inputs=[x, c, y, lr],
         outputs=[tagger.nll, tagger.corrects],
         updates=tagger.updates,
         mode='FAST_RUN'
@@ -271,6 +275,8 @@ def train(args):
 
     def _train():
         for epoch in xrange(args.epoch):
+            _lr = argv.lr / float(epoch+1)
+
             print '\nEpoch: %d' % (epoch + 1)
             print '\tBatch Index: ',
             start = time.time()
@@ -284,15 +290,16 @@ def train(args):
                     print index,
                     sys.stdout.flush()
 
-                loss, corrects = train_model(tr_sample_x[index], tr_sample_c[index], tr_sample_y[index])
+                loss, corrects = train_model(tr_sample_x[index], tr_sample_c[index], tr_sample_y[index], _lr)
+                assert math.isnan(loss) is False, index
 
                 total += len(corrects)
                 correct += np.sum(corrects)
-                losses += np.mean(loss)
+                losses += loss
 
             end = time.time()
             print '\tTime: %f seconds' % (end - start)
-            print '\tAverage Negative Log Likelihood: %f' % (losses / len(tr_sample_x))
+            print '\tNegative Log Likelihood: %f' % losses
             print '\tAccuracy:%f  Total:%d  Correct:%d' % ((correct / total), total, correct)
 
             _dev(valid_model)
@@ -319,3 +326,35 @@ def train(args):
         print '\tAccuracy:%f  Total:%d  Correct:%d' % ((correct / total), total, correct)
 
     _train()
+
+
+if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Train NN tagger.')
+
+    parser.add_argument('--train_data', help='path to training data')
+    parser.add_argument('--dev_data', help='path to development data')
+    parser.add_argument('--test_data', help='path to test data')
+    parser.add_argument('--data_size', type=int, default=100000)
+
+    # NN architecture
+    parser.add_argument('--vocab', type=int, default=100000000, help='vocabulary size')
+    parser.add_argument('--emb', type=int, default=100, help='dimension of embeddings')
+    parser.add_argument('--c_emb', type=int, default=10, help='dimension of char embeddings')
+    parser.add_argument('--window', type=int, default=5, help='window size for convolution')
+    parser.add_argument('--hidden', type=int, default=300, help='dimension of hidden layer')
+    parser.add_argument('--c_hidden', type=int, default=50, help='dimension of char hidden layer')
+    parser.add_argument('--tag', type=int, default=45, help='number of tags')
+    parser.add_argument('--layer', type=int, default=2, help='number of layers')
+
+    # training options
+    parser.add_argument('--opt', default='sgd', help='optimization method')
+    parser.add_argument('--reg', default=0.0001, help='L2 reg')
+    parser.add_argument('--batch', type=int, default=32, help='batch size')
+    parser.add_argument('--epoch', type=int, default=10, help='number of epochs to train')
+    parser.add_argument('--lr', type=float, default=0.0075, help='learning rate')
+    parser.add_argument('--init_emb', default=None, help='initial embedding file (word2vec output)')
+
+    argv = parser.parse_args()
+    train(argv)
