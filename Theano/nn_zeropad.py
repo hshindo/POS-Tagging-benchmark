@@ -40,16 +40,17 @@ class Model(object):
             self.E = self.emb
 
         self.pad = build_shared_zeros((1, n_c_emb))
-#        self.e_c = theano.shared(sample_weights(char_size - 1, n_c_emb))
         self.e_c = theano.shared(sample_norm_dist(char_size - 1, n_c_emb))
         self.emb_c = T.concatenate([self.pad, self.e_c], 0)
 
         self.W_in = theano.shared(sample_weights(n_phi, n_h))
         self.W_c = theano.shared(sample_weights(n_c_emb, n_c_h))
         self.W_out = theano.shared(sample_weights(n_h, n_y))
+
         self.b_in = theano.shared(sample_weights(n_h))
         self.b_c = theano.shared(sample_weights(n_c_h))
         self.b_y = theano.shared(sample_weights(n_y))
+
         self.params = [self.e_c, self.W_in, self.W_c, self.W_out, self.b_in, self.b_c, self.b_y]
 
         """ look up embedding """
@@ -63,33 +64,20 @@ class Model(object):
 
         """ output """
         self.h = relu(T.dot(self.x_phi.reshape((self.x_phi.shape[0], -1)), self.W_in) + self.b_in)
-#        self.p_y_given_x = T.nnet.softmax(T.dot(self.h, self.W_out) + self.b_y)
-        self.score = T.dot(self.h, self.W_out) + self.b_y
-        self.log_p = self.score - logsumexp(self.score, 1)
+        self.p_y_given_x = T.nnet.softmax(T.dot(self.h, self.W_out) + self.b_y)
 
         """ predict """
-#        self.y_pred = T.argmax(self.p_y_given_x, axis=1)
-        self.y_pred = T.argmax(self.log_p, axis=1)
-        self.corrects = T.eq(self.y_pred, self.y)
+        self.y_pred = T.argmax(self.p_y_given_x, axis=1)
+        self.result = T.eq(self.y_pred, self.y)
 
         """ loss """
-#        self.nll = -T.sum(T.log(self.p_y_given_x)[T.arange(n_words), self.y])
-        self.nll = -T.sum(self.log_p[T.arange(n_words), self.y])
+        self.nll = -T.sum(T.log(self.p_y_given_x)[T.arange(n_words), self.y])
         self.cost = self.nll
 
         if opt == 'sgd':
             self.updates = sgd(self.cost, self.params, self.emb, self.x_emb, lr)
         else:
             self.updates = ada_grad(self.cost, self.params, self.emb, self.x_emb, self.x, lr)
-
-
-def logsumexp(x, axis):
-    """
-    :param x: 1D: batch, 2D: n_y, 3D: n_y
-    :return:
-    """
-    x_max = T.max(x, axis=axis, keepdims=True)
-    return T.log(T.sum(T.exp(x - x_max), axis=axis, keepdims=True)) + x_max
 
 
 def load_conll(path, _train, vocab_word, data_size=100000, vocab_char=Vocab(), vocab_tag=Vocab(), vocab_size=None, file_encoding='utf-8'):
@@ -308,7 +296,7 @@ def train(args):
 
     train_model = theano.function(
         inputs=[bos, eos, lr],
-        outputs=[tagger.nll, tagger.corrects],
+        outputs=[tagger.nll, tagger.result],
         updates=tagger.updates,
         givens={
             x: tr_sample_x[bos: eos],
@@ -320,7 +308,7 @@ def train(args):
 
     valid_model = theano.function(
         inputs=[bos, eos],
-        outputs=tagger.corrects,
+        outputs=tagger.result,
         givens={
             x: dev_sample_x[bos: eos],
             c: dev_sample_c[bos: eos],

@@ -12,14 +12,14 @@ import theano
 import theano.tensor as T
 from theano.tensor.nnet.conv import conv2d
 
-from nn_utils import build_shared_zeros, sample_weights, relu
+from nn_utils import build_shared_zeros, sample_weights, sample_norm_dist, relu
 from optimizers import sgd, ada_grad
 
 theano.config.floatX = 'float32'
 
 
 class Model(object):
-    def __init__(self, x, c, y, opt, lr, init_emb, vocab_size, char_size, window, n_emb, n_c_emb, n_h, n_c_h, n_y, reg=0.0001):
+    def __init__(self, x, c, y, opt, lr, init_emb, vocab_size, char_size, window, n_emb, n_c_emb, n_h, n_c_h, n_y):
         """
         :param n_emb: dimension of word embeddings
         :param window: window size
@@ -46,14 +46,18 @@ class Model(object):
             self.emb = theano.shared(sample_weights(vocab_size, n_emb))
 
         self.pad = build_shared_zeros((1, n_c_emb))
-        self.e_c = theano.shared(sample_weights(char_size - 1, n_c_emb))
+        self.e_c = theano.shared(sample_norm_dist(char_size - 1, n_c_emb))
         self.emb_c = T.concatenate([self.pad, self.e_c], 0)
 
         self.W_in = theano.shared(sample_weights(n_h, 1, window, n_phi))
         self.W_c = theano.shared(sample_weights(n_c_h, 1, window, n_c_emb))
-        self.W_h = theano.shared(sample_weights(n_h, n_h))
         self.W_out = theano.shared(sample_weights(n_h, n_y))
-        self.params = [self.e_c, self.W_in, self.W_c, self.W_h, self.W_out]
+
+        self.b_in = theano.shared(sample_weights(n_h, 1))
+        self.b_c = theano.shared(sample_weights(n_c_h))
+        self.b_y = theano.shared(sample_weights(n_y))
+
+        self.params = [self.e_c, self.W_in, self.W_c, self.W_out, self.b_in, self.b_c, self.b_y]
 
         """ pad """
         self.zero = theano.shared(np.zeros(shape=(1, 1, window / 2, n_phi), dtype=theano.config.floatX))
@@ -63,7 +67,7 @@ class Model(object):
         c_emb = self.emb_c[self.c]  # c_emb: 1D: n_words, 2D: n_chars, 3D: n_c_emb
 
         """ create feature """
-        c_phi = self.create_char_feature(c_emb)
+        c_phi = self.create_char_feature(c_emb) + self.b_c
         x_phi = T.concatenate([x_emb, c_phi], axis=1)
 
         """ convolution """
@@ -71,12 +75,12 @@ class Model(object):
         x_in = conv2d(input=x_padded, filters=self.W_in)
 
         """ feed-forward computation """
-        h = relu(T.dot(x_in.reshape((x_in.shape[1], x_in.shape[2])).T, self.W_h))
-        self.p_y_given_x = T.nnet.softmax(T.dot(h, self.W_out))
+        h = relu(x_in.reshape((x_in.shape[1], x_in.shape[2])) + T.repeat(self.b_in, T.cast(x_in.shape[2], 'int32'), 1)).T
+        self.p_y_given_x = T.nnet.softmax(T.dot(h, self.W_out) + self.b_y)
 
         """ prediction """
         self.y_pred = T.argmax(self.p_y_given_x, axis=1)
-        self.corrects = T.eq(self.y_pred, self.y)
+        self.result = T.eq(self.y_pred, self.y)
 
         """ cost function """
         self.nll = -T.sum(T.log(self.p_y_given_x)[T.arange(n_words), self.y])
@@ -258,18 +262,18 @@ def train(args):
     """ tagger set up """
     tagger = Model(x=x, c=c, y=y, opt=opt, lr=lr, init_emb=init_emb,
                    vocab_size=vocab_word.size(), char_size=vocab_char.size(), window=window,
-                   n_emb=n_emb, n_c_emb=n_c_emb, n_h=n_h, n_c_h=n_c_h, n_y=n_y, reg=reg)
+                   n_emb=n_emb, n_c_emb=n_c_emb, n_h=n_h, n_c_h=n_c_h, n_y=n_y)
 
     train_model = theano.function(
         inputs=[x, c, y, lr],
-        outputs=[tagger.nll, tagger.corrects],
+        outputs=[tagger.nll, tagger.result],
         updates=tagger.updates,
         mode='FAST_RUN'
     )
 
     valid_model = theano.function(
         inputs=[x, c, y],
-        outputs=tagger.corrects,
+        outputs=tagger.result,
         mode='FAST_RUN'
     )
 
