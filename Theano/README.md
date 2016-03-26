@@ -9,21 +9,15 @@ pip install chainer
 
 ## Training
 
-* with characters + conv2D + indexing
+* with characters + conv2D
 
 ```
-python nn_char.py --train_data wsj_00-18.conll --dev_data wsj_22-24.conll --init_emb nyt.100
+python main.py -mode train --model char --train_data wsj_00-18.conll --dev_data wsj_22-24.conll --emb_list emb_list.txt --word_list word_list.txt
 ```
 
-* with characters + conv2D + character-zero-padding
+* with words + conv2D
 
 ```
-python nn_char_zeropad.py --train_data wsj_00-18.conll --dev_data wsj_22-24.conll --init_emb nyt.100
-```
-
-* with characters + word-zero-padding + character-zero-padding
-
-```
-python nn_zeropad.py --train_data wsj_00-18.conll --dev_data wsj_22-24.conll --init_emb nyt.100
+python main.py -mode train --mode word --train_data wsj_00-18.conll --dev_data wsj_22-24.conll --emb_list emb_list.txt --word_list word_list.txt
 ```
 
