@@ -155,6 +155,62 @@ def load_conll(path, vocab_size=None, file_encoding='utf-8', limit_vocab=None):
     return corpus, vocab_word, vocab_char, vocab_tag
 
 
+def load_conll_char(path, vocab_size=None, file_encoding='utf-8', limit_vocab=None):
+    """Load CoNLL-format file.
+    :return tuple of corpus (pairs of words and tags), word vocabulary, char vocabulary, tag vocabulary"""
+
+    corpus = []
+    word_freqs = defaultdict(int)
+    char_freqs = defaultdict(int)
+    max_char_len = -1
+
+    vocab_word = Vocab()
+    vocab_char = Vocab()
+    vocab_tag = Vocab()
+    vocab_word.add_word(EOS)
+    vocab_word.add_word(UNK)
+    vocab_char.add_word(EOS)
+
+    with open(path) as f:
+        wts = []
+        for line in f:
+            es = line.rstrip().split('\t')
+            if len(es) == 10:
+                word = es[1].decode(file_encoding)
+                # replace numbers with 0
+                word = RE_NUM.sub(u'0', word)
+                tag = es[4].decode(file_encoding)
+
+                max_char_len = len(word) if max_char_len < len(word) else max_char_len
+
+                for c in word:
+                    char_freqs[c] += 1
+
+                wt = (word, tag)
+                wts.append(wt)
+                word_freqs[word.lower()] += 1
+                vocab_tag.add_word(tag)
+            else:
+                # reached end of sentence
+                corpus.append(wts)
+                wts = []
+        if wts:
+            corpus.append(wts)
+
+    for w, f in sorted(word_freqs.items(), key=lambda (k, v): -v):
+        if limit_vocab is None or w in limit_vocab:
+            # register only words in limit_vocab
+            if vocab_size is None or vocab_word.size() < vocab_size:
+                vocab_word.add_word(w)
+            else:
+                break
+
+    for c, f in sorted(char_freqs.items(), key=lambda (k, v): -v):
+        vocab_char.add_word(c)
+
+    return corpus, vocab_word, vocab_char, vocab_tag, max_char_len
+
+
 def convert_into_ids(corpus, vocab_word, vocab_char, vocab_tag):
     id_corpus_w = []
     id_corpus_c = []
