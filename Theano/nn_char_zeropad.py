@@ -121,7 +121,6 @@ def load_conll(path, _train, vocab_word, data_size=100000, vocab_char=Vocab(), v
 
     if _train:
         vocab_char.add_word(PAD)
-        vocab_char.add_word(UNK)
 
     with open(path) as f:
         wts = []
@@ -154,9 +153,9 @@ def load_conll(path, _train, vocab_word, data_size=100000, vocab_char=Vocab(), v
                 vocab_word.add_word(w)
             else:
                 break
-    if _train:
-        for c, f in sorted(char_freqs.items(), key=lambda (k, v): -v):
-            vocab_char.add_word(c)
+
+    for c, f in sorted(char_freqs.items(), key=lambda (k, v): -v):
+        vocab_char.add_word(c)
 
     return corpus, vocab_word, vocab_char, vocab_tag
 

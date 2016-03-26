@@ -6,7 +6,7 @@ import theano.tensor as T
 
 
 def relu(x):
-    return T.maximum(0, x)
+    return T.switch(x < 0., 0., x)
 
 
 def sigmoid(x):
@@ -37,8 +37,8 @@ def sample_weights(size_x, size_y=0, size_v=0, size_z=0):
                                          size=(size_x, size_y)),
                        dtype=theano.config.floatX)
     else:
-        W = np.asarray(np.random.uniform(low=-np.sqrt(6.0 / (size_x + size_y)),
-                                         high=np.sqrt(6.0 / (size_x + size_y)),
+        W = np.asarray(np.random.uniform(low=-np.sqrt(6.0 / (size_x + size_v * size_z)),
+                                         high=np.sqrt(6.0 / (size_x + size_v * size_z)),
                                          size=(size_x, size_y, size_v, size_z)),
                        dtype=theano.config.floatX)
     return W

@@ -30,10 +30,8 @@ class Model(object):
         n_words = T.cast(self.x.shape[0], dtype='int32')
 
         """ params """
-#        self.zero = theano.shared(np.zeros(shape=(1, n_emb), dtype=theano.config.floatX))
         if init_emb is not None:
             self.emb = theano.shared(init_emb)
-#            self.E = T.concatenate([self.zero, self.emb], 0)
             self.E = self.emb
         else:
             self.emb = theano.shared(sample_weights(vocab_size, n_emb))
@@ -98,7 +96,6 @@ def load_conll(path, _train, vocab_word, data_size=100000, vocab_char=Vocab(), v
 
     if _train:
         vocab_char.add_word(PAD)
-        vocab_char.add_word(UNK)
 
     with open(path) as f:
         wts = []
@@ -133,9 +130,9 @@ def load_conll(path, _train, vocab_word, data_size=100000, vocab_char=Vocab(), v
                 vocab_word.add_word(w)
             else:
                 break
-    if _train:
-        for c, f in sorted(char_freqs.items(), key=lambda (k, v): -v):
-            vocab_char.add_word(c)
+
+    for c, f in sorted(char_freqs.items(), key=lambda (k, v): -v):
+        vocab_char.add_word(c)
 
     return corpus, vocab_word, vocab_char, vocab_tag, max_char_len
 

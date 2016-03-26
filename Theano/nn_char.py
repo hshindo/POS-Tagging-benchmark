@@ -1,16 +1,8 @@
-__author__ = 'hiroki'
-
-import sys
-import time
-import math
-from collections import defaultdict
-
 import numpy as np
 import theano
 import theano.tensor as T
 from theano.tensor.nnet.conv import conv2d
 
-from util import load_init_emb, convert_into_ids, UNK, RE_NUM, Vocab
 from nn_utils import sample_weights, sample_norm_dist, relu
 from optimizers import sgd, ada_grad
 
@@ -18,50 +10,47 @@ theano.config.floatX = 'float32'
 
 
 class Model(object):
-    def __init__(self, x, c, b, y, opt, lr, init_emb, vocab_size, char_size, window, n_emb, n_c_emb, n_h, n_c_h, n_y):
-        """
-        :param n_emb: dimension of word embeddings
-        :param window: window size
-        :param n_h: dimension of hidden layer
-        :param n_y: number of tags
-        x: 1D: batch size * window, 2D: emb_dim
-        h: 1D: batch_size, 2D: hidden_dim
-        """
+    def __init__(self, w, c, b, y, lr,
+                 init_w_emb, vocab_w_size, vocab_c_size,
+                 w_emb_dim, c_emb_dim, w_hidden_dim, c_hidden_dim, output_dim,
+                 window, opt):
 
         assert window % 2 == 1, 'Window size must be odd'
 
         """ input """
-        self.x = x
+        self.w = w
         self.c = c
         self.b = b
         self.y = y
+        self.lr = lr
+        self.input = [self.w, self.c, self.b, self.y, self.lr]
 
-        n_phi = n_emb + n_c_emb * window
-        n_words = x.shape[0]
+        n_phi = w_emb_dim + c_emb_dim * window
+        n_words = w.shape[0]
 
         """ params """
-        if init_emb is not None:
-            self.emb = theano.shared(init_emb)
+        if init_w_emb is not None:
+            self.emb = theano.shared(init_w_emb)
         else:
-            self.emb = theano.shared(sample_weights(vocab_size, n_emb))
+            self.emb = theano.shared(sample_weights(vocab_w_size, w_emb_dim))
 
-        self.emb_c = theano.shared(sample_norm_dist(char_size, n_c_emb))
-        self.W_in = theano.shared(sample_weights(n_h, 1, window, n_phi))
-        self.W_c = theano.shared(sample_weights(n_c_h, 1, window, n_c_emb))
-        self.W_out = theano.shared(sample_weights(n_h, n_y))
+        self.emb_c = theano.shared(sample_norm_dist(vocab_c_size, c_emb_dim))
+        self.W_in = theano.shared(sample_weights(w_hidden_dim, 1, window, n_phi))
+        self.W_c = theano.shared(sample_weights(c_hidden_dim, 1, window, c_emb_dim))
+        self.W_out = theano.shared(sample_weights(w_hidden_dim, output_dim))
 
-        self.b_in = theano.shared(sample_weights(n_h, 1))
-        self.b_c = theano.shared(sample_weights(n_c_h))
-        self.b_y = theano.shared(sample_weights(n_y))
+        self.b_in = theano.shared(sample_weights(w_hidden_dim, 1))
+        self.b_c = theano.shared(sample_weights(c_hidden_dim))
+        self.b_y = theano.shared(sample_weights(output_dim))
 
         """ pad """
         self.zero = theano.shared(np.zeros(shape=(1, 1, window / 2, n_phi), dtype=theano.config.floatX))
-        self.zero_c = theano.shared(np.zeros(shape=(1, 1, window / 2, n_c_emb), dtype=theano.config.floatX))
+        self.zero_c = theano.shared(np.zeros(shape=(1, 1, window / 2, c_emb_dim), dtype=theano.config.floatX))
 
         self.params = [self.emb_c, self.W_in, self.W_c, self.W_out, self.b_in, self.b_c, self.b_y]
 
         """ look up embedding """
-        x_emb = self.emb[self.x]  # x_emb: 1D: n_words, 2D: n_emb
+        x_emb = self.emb[self.w]  # x_emb: 1D: n_words, 2D: n_emb
         c_emb = self.emb_c[self.c]  # c_emb: 1D: n_char of a sent, 2D: n_c_emb
 
         """ create feature """
@@ -74,10 +63,11 @@ class Model(object):
 
         """ feed-forward computation """
         h = relu(x_in.reshape((x_in.shape[1], x_in.shape[2])) + T.repeat(self.b_in, T.cast(x_in.shape[2], 'int32'), 1)).T
-        self.p_y_given_x = T.nnet.softmax(T.dot(h, self.W_out) + self.b_y)
+        self.o = T.dot(h, self.W_out) + self.b_y
+        self.p_y_given_x = T.nnet.softmax(self.o)
 
         """ prediction """
-        self.y_pred = T.argmax(self.p_y_given_x, axis=1)
+        self.y_pred = T.argmax(self.o, axis=1)
         self.result = T.eq(self.y_pred, self.y)
 
         """ cost function """
@@ -86,9 +76,9 @@ class Model(object):
         self.cost = self.nll
 
         if opt == 'sgd':
-            self.updates = sgd(self.cost, self.params, self.emb, x_emb, lr)
+            self.updates = sgd(self.cost, self.params, self.emb, x_emb, self.lr)
         else:
-            self.updates = ada_grad(self.cost, self.params, self.emb, x_emb, self.x, lr)
+            self.updates = ada_grad(self.cost, self.params, self.emb, x_emb, self.w, self.lr)
 
     def create_char_feature(self, b, c_emb, zero_c):
         def forward(b_t, b_tmp, c_emb, zero, W):
@@ -104,210 +94,3 @@ class Model(object):
                                 non_sequences=[c_emb, zero_c, self.W_c])
 
         return c
-
-
-def load_conll(path, _train, vocab_word, data_size=100000, vocab_char=Vocab(), vocab_tag=Vocab(), vocab_size=None, file_encoding='utf-8'):
-    corpus = []
-    word_freqs = defaultdict(int)
-    char_freqs = defaultdict(int)
-
-    if vocab_word is None:
-        register = True
-        vocab_word = Vocab()
-    else:
-        register = False
-
-    if register:
-        vocab_word.add_word(UNK)
-
-    if _train:
-        vocab_char.add_word(UNK)
-
-    with open(path) as f:
-        wts = []
-        for line in f:
-            es = line.rstrip().split('\t')
-            if len(es) == 10:
-                word = es[1].decode(file_encoding)
-                word = RE_NUM.sub(u'0', word)
-                tag = es[4].decode(file_encoding)
-
-                for c in word:
-                    char_freqs[c] += 1
-
-                wt = (word, tag)
-                wts.append(wt)
-                word_freqs[word.lower()] += 1
-                vocab_tag.add_word(tag)
-            else:
-                # reached end of sentence
-                corpus.append(wts)
-                wts = []
-                if len(corpus) == data_size:
-                    break
-        if wts:
-            corpus.append(wts)
-
-    if register:
-        for w, f in sorted(word_freqs.items(), key=lambda (k, v): -v):
-            if vocab_size is None or vocab_word.size() < vocab_size:
-                vocab_word.add_word(w)
-            else:
-                break
-    if _train:
-        for c, f in sorted(char_freqs.items(), key=lambda (k, v): -v):
-            vocab_char.add_word(c)
-
-    return corpus, vocab_word, vocab_char, vocab_tag
-
-
-def train(args):
-    print '\nNEURAL POS TAGGER START\n'
-
-    print '\tINITIAL EMBEDDING\t%s' % args.init_emb
-    print '\tWORD VECTOR\t\tEmb Dim: %d  Hidden Dim: %d' % (args.emb, args.hidden)
-    print '\tCHARACTER VECTOR\tEmb Dim: %d  Hidden Dim: %d' % (args.c_emb, args.c_hidden)
-    print '\tOPTIMIZATION\t\tMethod: %s  Learning Rate: %f  L2 Reg: %f' % (args.opt, args.lr, args.reg)
-
-    """ load pre-trained embeddings """
-    vocab_word = None
-    init_emb = None
-    if args.init_emb:
-        print '\tLoading Embeddings...'
-        init_emb, vocab_word = load_init_emb(args.init_emb)
-        n_emb = init_emb.shape[1]
-    else:
-        n_emb = args.emb
-
-    """ load data """
-    print '\tLoading Data...'
-    train_corpus, vocab_word, vocab_char, vocab_tag = load_conll(path=args.train_data, _train=True, data_size=args.data_size, vocab_word=vocab_word, vocab_size=args.vocab)
-    dev_corpus, _, _, _ = load_conll(path=args.dev_data, _train=False, vocab_word=vocab_word, vocab_char=vocab_char)
-    print '\tTrain Sentences: %d  Test Sentences: %d' % (len(train_corpus), len(dev_corpus))
-    print '\tVocab size: %d  Char size: %d' % (vocab_word.size(), vocab_char.size())
-
-    """ converting into ids """
-    print '\tConverting into IDs...'
-    # batches: 1D: n_batch, 2D: [0]=word id 2D matrix, [1]=tag id 2D matrix
-    tr_sample_x, tr_sample_c, tr_sample_b, tr_sample_y = convert_into_ids(train_corpus, vocab_word, vocab_char, vocab_tag)
-    dev_sample_x, dev_sample_c, dev_sample_b, dev_sample_y = convert_into_ids(dev_corpus, vocab_word, vocab_char, vocab_tag)
-
-    """ symbol definition """
-    n_c_emb = args.c_emb
-    window = args.window
-    opt = args.opt
-    reg = args.reg
-    n_h = args.hidden
-    n_c_h = args.c_hidden
-    n_y = args.tag
-
-    print '\tCompiling Theano Code...'
-    x = T.ivector()
-    c = T.ivector()
-    b = T.ivector()
-    y = T.ivector()
-    lr = T.fscalar('lr')
-
-    """ tagger set up """
-    tagger = Model(x=x, c=c, b=b, y=y, opt=opt, lr=lr, init_emb=init_emb,
-                   vocab_size=vocab_word.size(), char_size=vocab_char.size(), window=window,
-                   n_emb=n_emb, n_c_emb=n_c_emb, n_h=n_h, n_c_h=n_c_h, n_y=n_y)
-
-    train_model = theano.function(
-        inputs=[x, c, b, y, lr],
-        outputs=[tagger.nll, tagger.result],
-        updates=tagger.updates,
-        mode='FAST_RUN'
-    )
-
-    valid_model = theano.function(
-        inputs=[x, c, b, y],
-        outputs=tagger.result,
-        mode='FAST_RUN'
-    )
-
-    def _train():
-        for epoch in xrange(args.epoch):
-            _lr = argv.lr / float(epoch+1)
-
-            print '\nEpoch: %d' % (epoch + 1)
-            print '\tBatch Index: ',
-            start = time.time()
-
-            total = 0.0
-            correct = 0
-            losses = 0.0
-            for index in xrange(len(tr_sample_x)):
-                if index % 100 == 0 and index != 0:
-                    print index,
-                    sys.stdout.flush()
-
-                loss, corrects = train_model(tr_sample_x[index], tr_sample_c[index], tr_sample_b[index], tr_sample_y[index], _lr)
-                assert math.isnan(loss) is False, index
-
-                total += len(corrects)
-                correct += np.sum(corrects)
-                losses += loss
-
-            end = time.time()
-            print '\tTime: %f seconds' % (end - start)
-            print '\tNegative Log Likelihood: %f' % losses
-            print '\tAccuracy:%f  Total:%d  Correct:%d' % ((correct / total), total, correct)
-
-            _dev(valid_model)
-
-    def _dev(model):
-        print '\tBatch Index: ',
-        start = time.time()
-
-        total = 0.0
-        correct = 0
-
-        for index in xrange(len(dev_sample_x)):
-            if index % 100 == 0 and index != 0:
-                print index,
-                sys.stdout.flush()
-
-            corrects = model(dev_sample_x[index], dev_sample_c[index], dev_sample_b[index], dev_sample_y[index])
-
-            total += len(corrects)
-            correct += np.sum(corrects)
-
-        end = time.time()
-
-        print '\tTime: %f seconds' % (end - start)
-        print '\tAccuracy:%f  Total:%d  Correct:%d' % ((correct / total), total, correct)
-
-    _train()
-
-
-if __name__ == '__main__':
-    import argparse
-
-    parser = argparse.ArgumentParser(description='Train NN tagger.')
-
-    parser.add_argument('--train_data', help='path to training data')
-    parser.add_argument('--dev_data', help='path to development data')
-    parser.add_argument('--test_data', help='path to test data')
-    parser.add_argument('--data_size', type=int, default=100000)
-
-    # NN architecture
-    parser.add_argument('--vocab', type=int, default=100000000, help='vocabulary size')
-    parser.add_argument('--emb', type=int, default=100, help='dimension of embeddings')
-    parser.add_argument('--c_emb', type=int, default=10, help='dimension of char embeddings')
-    parser.add_argument('--window', type=int, default=5, help='window size for convolution')
-    parser.add_argument('--hidden', type=int, default=300, help='dimension of hidden layer')
-    parser.add_argument('--c_hidden', type=int, default=50, help='dimension of char hidden layer')
-    parser.add_argument('--tag', type=int, default=45, help='number of tags')
-    parser.add_argument('--layer', type=int, default=2, help='number of layers')
-
-    # training options
-    parser.add_argument('--opt', default='sgd', help='optimization method')
-    parser.add_argument('--reg', default=0.0001, help='L2 reg')
-    parser.add_argument('--batch', type=int, default=32, help='batch size')
-    parser.add_argument('--epoch', type=int, default=10, help='number of epochs to train')
-    parser.add_argument('--lr', type=float, default=0.0075, help='learning rate')
-    parser.add_argument('--init_emb', default=None, help='initial embedding file (word2vec output)')
-
-    argv = parser.parse_args()
-    train(argv)
