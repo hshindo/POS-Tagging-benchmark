@@ -201,7 +201,7 @@ def _test_expand():
     assert np.array_equal(np.asarray(res), np.asarray(ref))
 
 
-def create_batches(corpus, vocab_word, vocab_char, vocab_tag, batch_size, linear_conv, window_size, gpu, shuffle):
+def create_batches(corpus, vocab_word, vocab_char, vocab_tag, batch_size, linear_conv, window_size, pad_char, gpu, shuffle):
     # convert to IDs
     id_corpus = []
     for sen in corpus:
@@ -240,15 +240,27 @@ def create_batches(corpus, vocab_word, vocab_char, vocab_tag, batch_size, linear
             eos_id = vocab_word.get_id(EOS)
             word_ids = map(lambda ids: _expand(ids, window_size, eos_id), word_ids)
 
-        char_batch = []
         char_boundaries = []
-        i = 0
-        for char_id_lists in char_ids:
-            for c_ids in char_id_lists:
-                i += len(c_ids)
-                char_boundaries.append(i)
-                char_batch.extend(c_ids)
-        char_boundaries.pop()
+        if pad_char:
+            max_word_len = -1
+            sen_len = len(word_ids[0])
+            for char_id_lists in char_ids:
+                for c_ids in char_id_lists:
+                    max_word_len = max(max_word_len, len(c_ids))
+            eos_id = vocab_char.get_id(EOS)     # padded with EOS
+            char_batch = np.ones((len(word_ids), sen_len, max_word_len)) * eos_id  # 3D array
+            for i, char_id_lists in enumerate(char_ids):
+                for j, c_ids in enumerate(char_id_lists):
+                    char_batch[i, j, :len(c_ids)] = c_ids
+        else:
+            char_batch = []
+            i = 0
+            for char_id_lists in char_ids:
+                for c_ids in char_id_lists:
+                    i += len(c_ids)
+                    char_boundaries.append(i)
+                    char_batch.extend(c_ids)
+            char_boundaries.pop()
 
         word_ids_data = np.asarray(word_ids, dtype=np.int32)
         char_ids_data = np.asarray(char_batch, dtype=np.int32)

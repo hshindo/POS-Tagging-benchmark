@@ -85,13 +85,14 @@ def train(args):
     # create batches
     logger.info('Creating batches...')
     batches = util.create_batches(corpus, vocab_word, vocab_char, vocab_tag, args.batch,
-                                  linear_conv=args.linear_conv, window_size=args.word_window,
+                                  linear_conv=args.linear_conv, window_size=args.word_window, pad_char=args.pad_char,
                                   gpu=args.gpu, shuffle=not args.no_shuffle)
 
     # set up tagger
     tagger = nn.NnTagger(
             word_vocab_size=vocab_word.size(), word_emb_dim=emb_dim, word_window_size=args.word_window, word_init_emb=init_emb, word_hidden_dim=args.word_hidden,
-            use_char=args.use_char, linear_conv=args.linear_conv, char_vocab_size=vocab_char.size(), char_emb_dim=args.char_emb, char_window_size=args.char_window, char_hidden_dim=args.char_hidden,
+            use_char=args.use_char, linear_conv=args.linear_conv, pad_char=args.pad_char,
+            char_vocab_size=vocab_char.size(), char_emb_dim=args.char_emb, char_window_size=args.char_window, char_hidden_dim=args.char_hidden,
             tag_num=vocab_tag.size())
     classifier = L.Classifier(tagger, lossfun=_softmax_cross_entropy_no_normalize)
 
@@ -152,6 +153,7 @@ def train(args):
         # save current model
         dest_path = os.path.join(args.model, 'epoch' + str(n))
         tagger.save(dest_path)
+
 
     logger.info('Training done.')
     logger.info('Total time: {} sec'.format(total_time))
