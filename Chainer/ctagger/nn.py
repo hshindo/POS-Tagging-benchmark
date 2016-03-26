@@ -9,7 +9,7 @@ class NnTagger(Chain):
     """Neural network tagger by (dos Santos and Zadrozny, ICML 2014)."""
 
     def __init__(self, word_vocab_size=10000, word_emb_dim=100, word_window_size=5, word_init_emb=None, word_hidden_dim=100,
-                 use_char=True, linear_conv=False, char_vocab_size=50, char_emb_dim=10, char_window_size=5, char_init_emb=None, char_hidden_dim=50,
+                 use_char=True, linear_conv=False, pad_char=False, char_vocab_size=50, char_emb_dim=10, char_window_size=5, char_init_emb=None, char_hidden_dim=50,
                  tag_num=45):
 
         assert word_window_size % 2 == 1, 'Word indow size must be odd.'
@@ -49,6 +49,7 @@ class NnTagger(Chain):
         self.word_hidden_dim = word_hidden_dim
         self.use_char = use_char
         self.linear_conv = linear_conv
+        self.pad_char = pad_char
         self.char_vocab_size = char_vocab_size
         self.char_emb_dim = char_emb_dim
         self.char_window_size = char_window_size
@@ -70,28 +71,38 @@ class NnTagger(Chain):
         word_embs = self.word_emb(word_ids)     # batch x len x dim
 
         if self.use_char:
-            # character lookup table
-            char_embs = self.char_emb(char_ids)     # total_len x dim
-
-            embs = []
-            if len(char_boundaries) > 0:
-                lst = F.split_axis(char_embs, char_boundaries, axis=0)
-            else:
-                # sentence has only one word
-                lst = [char_embs]
-            for i, char_emb_word in enumerate(lst):
-                char_emb_reshape = F.reshape(char_emb_word, (1, 1, -1, self.char_emb_dim))     # 1 x 1 x len x dim
+            if self.pad_char:
+                max_word_len = char_ids.data.shape[2]
+                char_ids_reshape = F.reshape(char_ids, (-1, max_word_len))      # (batch x words, max_word_len)
+                char_embs = self.char_emb(char_ids_reshape)     # (batch x words, max_word_len, dim)
+                char_emb_reshape = F.reshape(char_embs, (-1, 1, max_word_len, self.char_emb_dim))     # (batch x words) x 1 x max_word_len x dim
 
                 # convolution
-                char_emb_conv = self.char_conv(char_emb_reshape)     # 1 x dim x len x 1
-                char_emb_conv_reshape = F.reshape(char_emb_conv, (self.char_hidden_dim, -1))     # dim x len
+                char_emb_conv = self.char_conv(char_emb_reshape)     # (batch x words) x dim x max_word_len x 1
+                char_emb_max = F.max(char_emb_conv, axis=2)     # (batch x words) x dim x 1
+                char_emb_conv = F.reshape(char_emb_max, (batch_size, -1, self.char_hidden_dim))     # batch x words x dim
+            else:
+                # character lookup table
+                char_embs = self.char_emb(char_ids)     # total_len x dim
+                embs = []
+                if len(char_boundaries) > 0:
+                    lst = F.split_axis(char_embs, char_boundaries, axis=0)
+                else:
+                    # sentence has only one word
+                    lst = [char_embs]
+                for i, char_emb_word in enumerate(lst):
+                    char_emb_reshape = F.reshape(char_emb_word, (1, 1, -1, self.char_emb_dim))     # 1 x 1 x len x dim
 
-                # max
-                char_emb_max = F.max(char_emb_conv_reshape, axis=1)
+                    # convolution
+                    char_emb_conv = self.char_conv(char_emb_reshape)     # 1 x dim x len x 1
+                    char_emb_conv_reshape = F.reshape(char_emb_conv, (self.char_hidden_dim, -1))     # dim x len
 
-                embs.append(char_emb_max)
+                    # max
+                    char_emb_max = F.max(char_emb_conv_reshape, axis=1)
 
-            char_emb_conv = F.reshape(F.concat(embs, axis=0), (batch_size, -1, self.char_hidden_dim))
+                    embs.append(char_emb_max)
+
+                char_emb_conv = F.reshape(F.concat(embs, axis=0), (batch_size, -1, self.char_hidden_dim))
 
             # concatenate
             word_embs = F.concat([word_embs, char_emb_conv], axis=2)     # batch x len x dim

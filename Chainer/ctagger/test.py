@@ -26,7 +26,9 @@ def test(args):
     corpus = util.load_conll(args.data, 0)[0]
 
     print >> sys.stderr, 'Creating batches...'
-    batches = util.create_batches(corpus, vocab_word, vocab_char, vocab_tag, args.batch, gpu=None, shuffle=True)
+    batches = util.create_batches(corpus, vocab_word, vocab_char, vocab_tag, args.batch,
+                                  linear_conv=tagger.linear_conv, window_size=tagger.word_window_size,
+                                  pad_char=tagger.pad_char, gpu=None, shuffle=True)
     batch_num = len(batches)
 
     # main loop

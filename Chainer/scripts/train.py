@@ -23,9 +23,10 @@ if __name__ == '__main__':
     parser.add_argument('--char-window', type=int, default=5, help='window size for character-level convolution')
     parser.add_argument('--char-hidden', type=int, default=50, help='layer size after character-level convolution')
     parser.add_argument('--linear-conv', default=False, action='store_true', help='use linear instead of conv2d (only word-level model is supported)')
+    parser.add_argument('--pad-char', default=False, action='store_true', help='use character-level padding to make lengths of words even in mini-batch')
 
     # training options
-    parser.add_argument('--batch', type=int, default=1, help='batch size')
+    parser.add_argument('--batch', type=int, default=1, help='mini-batch size')
     parser.add_argument('--epoch', type=int, default=10, help='number of epochs to train')
     parser.add_argument('--init-emb', default=None, help='initial word embedding file (word2vec output, each line corresponds to line in word list)')
     parser.add_argument('--optim', nargs='+', default=['SGD', '0.0075'], help='optimization method supported by chainer (optional arguments can be omitted)')
