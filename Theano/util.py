@@ -56,6 +56,7 @@ class Vocab(object):
                 vocab.add_word(w)
         return vocab
 
+
 def load_init_emb(init_emb, init_emb_words, vocab):
     unk_id = vocab.get_id(UNK)
 
@@ -176,16 +177,9 @@ def convert_into_ids(corpus, vocab_word, vocab_char, vocab_tag):
             assert w_id is not None
             assert t_id is not None
 
-            for c in w:
-                c_id = vocab_char.get_id(c)
-
-                if c_id is None:
-                    c_id = vocab_char.get_id(UNK)
-                assert c_id is not None
-                c_ids.append(c_id)
-
             w_ids.append(w_id)
             t_ids.append(t_id)
+            c_ids.extend([vocab_char.get_id(c) for c in w])
             b += len(w)
             bs.append(b)
 

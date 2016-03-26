@@ -46,9 +46,9 @@ def sample_weights(size_x, size_y=0, size_v=0, size_z=0):
 
 def sample_norm_dist(size_x, size_y=0):
     if size_y == 0:
-        W = np.asarray(np.random.randn(size_x), dtype=theano.config.floatX)
+        W = np.asarray(np.random.randn(size_x), dtype=theano.config.floatX) * 0.1
     else:
-        W = np.asarray(np.random.randn(size_x, size_y), dtype=theano.config.floatX)
+        W = np.asarray(np.random.randn(size_x, size_y), dtype=theano.config.floatX) * 0.1
     return W
 
 

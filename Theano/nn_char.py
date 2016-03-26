@@ -51,16 +51,16 @@ class Model(object):
         self.params = [self.emb_c, self.W_in, self.W_c, self.W_out, self.b_in, self.b_c, self.b_y]
 
         """ look up embedding """
-        x_emb = self.emb[self.w]  # x_emb: 1D: n_words, 2D: n_emb
-        c_emb = self.emb_c[self.c]  # c_emb: 1D: n_char of a sent, 2D: n_c_emb
+        x_emb = self.emb[self.w]  # x_emb: 1D: n_words, 2D: w_emb_dim
+        c_emb = self.emb_c[self.c]  # c_emb: 1D: n_chars, 2D: c_emb_dim
 
         """ create feature """
-        c_phi = self.create_char_feature(self.b, c_emb, self.zero_c) + self.b_c
-        x_phi = T.concatenate([x_emb, c_phi], axis=1)
+        c_phi = self.create_char_feature(self.b, c_emb, self.zero_c) + self.b_c  # 1D: n_words, 2D: c_hidden_dim(50)
+        x_phi = T.concatenate([x_emb, c_phi], axis=1)  # 1D: n_words, 2D: w_emb_dim(100) + c_hidden_dim(50)
 
         """ convolution """
         x_padded = T.concatenate([self.zero, x_phi.reshape((1, 1, x_phi.shape[0], x_phi.shape[1])), self.zero], axis=2)  # x_padded: 1D: n_words + n_pad, 2D: n_phi
-        x_in = conv2d(input=x_padded, filters=self.W_in)
+        x_in = conv2d(input=x_padded, filters=self.W_in)  # 1D: 1, 2D: w_hidden_dim(300), 3D: n_words, 4D: 1
 
         """ feed-forward computation """
         h = relu(x_in.reshape((x_in.shape[1], x_in.shape[2])) + T.repeat(self.b_in, T.cast(x_in.shape[2], 'int32'), 1)).T
@@ -73,7 +73,6 @@ class Model(object):
 
         """ cost function """
         self.nll = -T.sum(T.log(self.p_y_given_x)[T.arange(n_words), self.y])
-
         self.cost = self.nll
 
         if opt == 'sgd':
