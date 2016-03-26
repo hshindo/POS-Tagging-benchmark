@@ -45,7 +45,7 @@ def train(args):
     init_w_emb = None
     if args.emb_list:
         print '\tLoading word embeddings...\n'
-        init_w_emb = util.load_init_emb(args.emb_list, args.vocab_list, vocab_word)
+        init_w_emb = util.load_init_emb(args.emb_list, args.word_list, vocab_word)
         w_emb_dim = init_w_emb.shape[1]
     else:
         w_emb_dim = args.w_emb_dim
