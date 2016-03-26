@@ -15,6 +15,12 @@ pip install chainer
 python scripts/train.py wsj_00-18.conll words.lst model --test wsj_22-24.conll --init-emb nyt100.lst --optim SGD 0.0075 --decay-lr --batch 1 --use-char
 ```
 
+* with characters (with character paddings)
+
+```
+python scripts/train.py wsj_00-18.conll words.lst model --test wsj_22-24.conll --init-emb nyt100.lst --optim SGD 0.0075 --decay-lr --batch 1 --use-char --pad-char
+```
+
 * without characters
 
 ```
