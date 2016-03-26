@@ -192,6 +192,43 @@ def convert_into_ids(corpus, vocab_word, vocab_char, vocab_tag):
     return id_corpus_w, id_corpus_c, id_corpus_b, id_corpus_t
 
 
+def convert_into_ids_batch(corpus, vocab_word, vocab_char, vocab_tag):
+    id_corpus_w = []
+    id_corpus_c = []
+    id_corpus_b = []
+    id_corpus_t = []
+
+    for sent in corpus:
+        w_ids = []
+        c_ids = []
+        bs = []
+        t_ids = []
+        b = 0
+        for w, t in sent:
+            w_id = vocab_word.get_id(w.lower())
+            t_id = vocab_tag.get_id(t)
+
+            if w_id is None:
+                w_id = vocab_word.get_id(UNK)
+
+            assert w_id is not None
+            assert t_id is not None
+
+            w_ids.append(w_id)
+            t_ids.append(t_id)
+            c_ids.extend([vocab_char.get_id(c) for c in w])
+            b += len(w)
+            bs.append(b)
+
+        id_corpus_w.append(w_ids)
+        id_corpus_c.append(c_ids)
+        id_corpus_b.append(bs)
+        id_corpus_t.append(t_ids)
+
+    assert len(id_corpus_w) == len(id_corpus_c) == len(id_corpus_b) == len(id_corpus_t)
+    return id_corpus_w, id_corpus_c, id_corpus_b, id_corpus_t
+
+
 def split_into_batches(corpus, batch_size, length_func=lambda t: len(t[0])):
     batches = []
     batch = []
