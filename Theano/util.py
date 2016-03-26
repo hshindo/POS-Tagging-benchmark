@@ -3,6 +3,8 @@ __author__ = 'hiroki'
 from collections import defaultdict
 import re
 import random
+import gzip
+import cPickle
 
 import numpy as np
 import theano
@@ -53,147 +55,6 @@ class Vocab(object):
                 w = line.strip().split('\t')[1].decode('utf-8')
                 vocab.add_word(w)
         return vocab
-
-
-def load_conll(path, train=True, vocab_word=Vocab(), vocab_tag=Vocab(), vocab_size=None, file_encoding='utf-8'):
-    """
-    Load CoNLL-format file.
-    :return triple of corpus (pairs of words and tags), word vocabulary, tag vocabulary
-    """
-
-    corpus = []
-    word_freqs = defaultdict(int)
-
-    if train:
-        vocab_word.add_word(PAD)
-        vocab_word.add_word(EOS)
-        vocab_word.add_word(UNK)
-
-    with open(path) as f:
-        wts = []
-        for line in f:
-            es = line.rstrip().split('\t')
-            if len(es) == 10:
-                word = es[1].decode(file_encoding).lower()
-                tag = es[4].decode(file_encoding)
-                vocab_tag.add_word(tag)
-                wt = (word, tag)
-                wts.append(wt)
-                word_freqs[word] += 1
-            else:
-                # reached end of sentence
-                corpus.append(wts)
-                wts = []
-        if wts:
-            corpus.append(wts)
-
-    if train:
-        for w, f in sorted(word_freqs.items(), key=lambda (k, v): -v):
-            if vocab_size is not None and vocab_word.size() < vocab_size:
-                vocab_word.add_word(w)
-            else:
-                break
-
-    return corpus, vocab_word, vocab_tag
-
-
-def load_conll_char(path, train, vocab_word, vocab_char=Vocab(), vocab_tag=Vocab(), vocab_size=None, file_encoding='utf-8'):
-    """Load CoNLL-format file.
-    :return tuple of corpus (pairs of words and tags), word vocabulary, char vocabulary, tag vocabulary"""
-
-    corpus = []
-    word_freqs = defaultdict(int)
-    char_freqs = defaultdict(int)
-    if vocab_word is None:
-        register = True
-        vocab_word = Vocab()
-    else:
-        register = False
-
-    if register:
-        vocab_word.add_word(UNK)
-
-    if train:
-        vocab_char.add_word(UNK)
-
-    with open(path) as f:
-        wts = []
-        for line in f:
-            es = line.rstrip().split('\t')
-            if len(es) == 10:
-                word = es[1].decode(file_encoding)
-                # replace numbers with 0
-                word = RE_NUM.sub(u'0', word)
-                tag = es[4].decode(file_encoding)
-
-                for c in word:
-                    char_freqs[c] += 1
-
-                wt = (word, tag)
-                wts.append(wt)
-                word_freqs[word.lower()] += 1
-                vocab_tag.add_word(tag)
-            else:
-                # reached end of sentence
-                corpus.append(wts)
-                wts = []
-        if wts:
-            corpus.append(wts)
-
-    if register:
-        for w, f in sorted(word_freqs.items(), key=lambda (k, v): -v):
-            if vocab_size is None or vocab_word.size() < vocab_size:
-                vocab_word.add_word(w)
-            else:
-                break
-    if train:
-        for c, f in sorted(char_freqs.items(), key=lambda (k, v): -v):
-            vocab_char.add_word(c)
-
-    return corpus, vocab_word, vocab_char, vocab_tag
-
-
-def load_init_emb(init_emb, dim=100):
-    vocab = Vocab()
-#    vocab.add_word(PAD)
-#    vocab.add_word(UNK)
-
-    emb = []
-
-    with open(init_emb) as f_words:
-        for i, line in enumerate(f_words):
-            line = line.strip().decode('utf-8').split()
-            word = line[0]
-            vec = line[1:]
-
-            if len(emb) > 0 and len(emb[0]) == len(vec):
-                emb.append(vec)
-            elif len(emb) == 0:
-                emb.append(vec)
-            else:
-                continue
-
-            if word == u'PADDING':
-                word = PAD
-            elif word == u'UNKNOWN':
-                word = UNK
-#            elif word == u'-lrb-':
-#                word = u'('
-#            elif word == u'-rrb-':
-#                word = u')'
-            else:
-                pass
-
-            vocab.add_word(word)
-
-#    pad = emb[1]
-#    unk = emb[0]
-#    emb[0] = pad
-#    emb[1] = unk
-
-    emb = np.asarray(emb, dtype=np.float32)
-    return emb, vocab
-
 
 def load_init_emb(init_emb, init_emb_words, vocab):
     unk_id = vocab.get_id(UNK)
@@ -291,32 +152,6 @@ def load_conll(path, vocab_size=None, file_encoding='utf-8', limit_vocab=None):
         vocab_char.add_word(c)
 
     return corpus, vocab_word, vocab_char, vocab_tag
-
-
-def convert_words_into_ids(corpus, vocab_word, vocab_tag):
-    id_corpus_w = []
-    id_corpus_t = []
-    for sent in corpus:
-        w_ids = []
-        t_ids = []
-        for w, t in sent:
-            w_id = vocab_word.get_id(w)
-            t_id = vocab_tag.get_id(t)
-
-            if w_id is None:
-                """ID for unknown word"""
-                w_id = vocab_word.get_id(UNK)
-            assert w_id is not None
-
-            if t_id is None:
-                """ID for unknown tag"""
-                t_id = -1
-
-            w_ids.append(w_id)
-            t_ids.append(t_id)
-        id_corpus_w.append(w_ids)
-        id_corpus_t.append(t_ids)
-    return id_corpus_w, id_corpus_t
 
 
 def convert_into_ids(corpus, vocab_word, vocab_char, vocab_tag):
@@ -493,4 +328,17 @@ def shared_data(x, y):
     x = shared(x)
     y = shared(np.asarray(y, dtype=np.int32))
     return x, y
+
+
+def dump_data(data, fn):
+    with gzip.open(fn + '.pkl.gz', 'wb') as gf:
+        cPickle.dump(data, gf, cPickle.HIGHEST_PROTOCOL)
+
+
+def load_data(fn):
+    if fn[-7:] != '.pkl.gz':
+        fn += '.pkl.gz'
+
+    with gzip.open(fn, 'rb') as gf:
+        return cPickle.load(gf)
 

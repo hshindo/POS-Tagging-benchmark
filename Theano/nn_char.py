@@ -10,7 +10,7 @@ theano.config.floatX = 'float32'
 
 
 class Model(object):
-    def __init__(self, w, c, b, y, lr,
+    def __init__(self, name, w, c, b, y, lr,
                  init_w_emb, vocab_w_size, vocab_c_size,
                  w_emb_dim, c_emb_dim, w_hidden_dim, c_hidden_dim, output_dim,
                  window, opt):
@@ -18,6 +18,7 @@ class Model(object):
         assert window % 2 == 1, 'Window size must be odd'
 
         """ input """
+        self.name = name
         self.w = w
         self.c = c
         self.b = b

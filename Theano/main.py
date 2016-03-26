@@ -6,11 +6,17 @@ theano.config.floatX = 'float32'
 if __name__ == '__main__':
     import argparse
     import train
+    import test
 
     parser = argparse.ArgumentParser(description='Train NN tagger.')
 
+    """ Mode """
+    parser.add_argument('-mode', default='train', help='train/test')
+
     """ Model """
-    parser.add_argument('-model', default='char', help='word/char')
+    parser.add_argument('--model', default='char', help='word/char')
+    parser.add_argument('--save', type=bool, default=True, help='save model')
+    parser.add_argument('--load', type=str, default=None, help='load model')
 
     """ Data """
     parser.add_argument('--train_data', help='path to training data')
@@ -34,4 +40,8 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=0.0075, help='learning rate')
 
     args = parser.parse_args()
-    train.train(args=args)
+
+    if args.mode == 'train':
+        train.train(args=args)
+    else:
+        test.test(args=args)
